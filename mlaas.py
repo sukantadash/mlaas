@@ -12,6 +12,7 @@ import configparser
 from functools import lru_cache
 import sys # Import sys for stdout handler
 from typing import Union, Optional # Import Optional for Python 3.9 compatibility
+from tabulate import tabulate
 
 # --- Constants and Configuration Setup ---
 # Store the config file in the user's home directory for persistence
@@ -488,6 +489,9 @@ def register_application(account_id: str, plan_id: str, app_name: str, threescal
             logger.error("Failed to get application ID or API key from response.")
             return None
     return None
+def display_services_with_keys(headers, services_with_keys):
+    table_data = [[s['id'], s['name'], s['proxy_endpoint'], s['api_key']] for s in services_with_keys]
+    user_output_logger.info(tabulate(table_data, headers=headers, tablefmt="grid"))
 
 # --- Main Program Orchestration ---
 def main():
@@ -567,32 +571,18 @@ def main():
         existing_service_info = {app['service_id']: app['user_key'] for app in existing_applications}
 
         services_with_keys = []
-        services_without_keys = []
 
         for service in all_services:
             proxy_details = get_proxy_details_for_service(service['id'], threescale_admin_api_key)
             service['proxy_endpoint'] = proxy_details['endpoint'] if proxy_details else "N/A"
             service['authentication_method'] = proxy_details['authentication_method'] if proxy_details else "N/A"
-
+            service['api_key'] = "N/A"
             if service['id'] in existing_service_info:
                 service['api_key'] = existing_service_info[service['id']]
-                services_with_keys.append(service)
-            else:
-                services_without_keys.append(service)
+            services_with_keys.append(service)
 
-        if services_with_keys:
-            user_output_logger.info("\nServices for which your account HAS an API key:")
-            for i, service in enumerate(services_with_keys):
-                user_output_logger.info(f"  {i+1}. ID: {service['id']}, Model Name: {service['name']}, Proxy URL: {service['proxy_endpoint']}, Auth Method: {service['authentication_method']}, API Key: {service['api_key']}")
-        else:
-            user_output_logger.info("\nYou do not have API keys for any services.")
-
-        if services_without_keys:
-            user_output_logger.info("\nServices for which your account does NOT have an API key:")
-            for i, service in enumerate(services_without_keys):
-                user_output_logger.info(f"  {i+1}. ID: {service['id']}, Model Name: {service['name']}, Proxy URL: {service['proxy_endpoint']}, Auth Method: {service['authentication_method']}")
-        else:
-            user_output_logger.info("\nYou have API keys for all available services.")
+        headers = ["ID", "Model Name", "Proxy URL", "API Key"]
+        display_services_with_keys(headers, services_with_keys)
 
         user_output_logger.info("\n--- Listing Services and API Key Status Completed ---")
         return
