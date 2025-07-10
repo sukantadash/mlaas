@@ -1,6 +1,6 @@
 # Default values for mlaas-helper (API-Only Configuration)
 # This is a YAML-formatted file.
-
+name: mlaas-helper
 replicaCount: 1
 
 image:
@@ -98,22 +98,24 @@ env:
   # Keycloak configuration for JWT token validation
   # IMPORTANT: These are required for the application to start
   # Set these to your actual Keycloak instance values
-  KEYCLOAK_URL: "https://your-keycloak-instance.com"
-  KEYCLOAK_REALM: "your-realm"
-  KEYCLOAK_CLIENT_ID: "your-client-id"
+  KEYCLOAK_URL: "https://changeme"
+  KEYCLOAK_REALM: "changeme"
+  KEYCLOAK_CLIENT_ID: "changeme"
   
   # 3Scale configuration
   # IMPORTANT: This is required for the application to start
-  THREESCALE_ADMIN_API_URL: "https://your-3scale-admin.com/admin/api"
+  THREESCALE_ADMIN_API_URL: "https://changeme"
 
 # Secrets (should be provided via external secret management)
 secrets:
+  # Keycloak client secret (REQUIRED for confidential clients)
+  KEYCLOAK_CLIENT_SECRET: "changeme"
   # 3Scale admin API key (REQUIRED)
-  THREESCALE_ADMIN_API_KEY: ""
+  THREESCALE_ADMIN_API_KEY: "changeme"
   # Artifactory credentials for pip configuration (OPTIONAL)
-  ARTIFACTORY_USERNAME: ""
-  ARTIFACTORY_PASSWORD: ""
-  ARTIFACTORY_URL: ""
+  ARTIFACTORY_USERNAME: "changeme"
+  ARTIFACTORY_PASSWORD: "changeme"
+  ARTIFACTORY_URL: "changeme"
 
 # Configuration validation
 validation:
@@ -129,6 +131,7 @@ validation:
     - THREESCALE_ADMIN_API_URL
   # Required secrets (will be checked during deployment)
   requiredSecrets:
+    - KEYCLOAK_CLIENT_SECRET
     - THREESCALE_ADMIN_API_KEY
 
 # Probes configuration

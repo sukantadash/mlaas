@@ -53,7 +53,7 @@ class ConfigError(Exception):
 def validate_config() -> None:
     """Validate required environment variables on startup"""
     required_vars = [
-        'KEYCLOAK_URL', 'KEYCLOAK_REALM', 'KEYCLOAK_CLIENT_ID',
+        'KEYCLOAK_URL', 'KEYCLOAK_REALM', 'KEYCLOAK_CLIENT_ID', 'KEYCLOAK_CLIENT_SECRET',
         'THREESCALE_ADMIN_API_URL', 'THREESCALE_ADMIN_API_KEY'
     ]
     missing = [var for var in required_vars if not os.getenv(var)]

@@ -61,6 +61,7 @@ The MLaaS (Machine Learning as a Service) Helper is a Flask-based REST API that 
    export KEYCLOAK_URL="https://your-keycloak-instance.com"
    export KEYCLOAK_REALM="your_realm_name"
    export KEYCLOAK_CLIENT_ID="your_client_id"
+   export KEYCLOAK_CLIENT_SECRET="your_client_secret"
    export THREESCALE_ADMIN_API_URL="https://your-admin-portal.3scale.net/admin/api/"
    export THREESCALE_ADMIN_API_KEY="your_3scale_admin_api_key"
    ```
@@ -80,6 +81,7 @@ The MLaaS (Machine Learning as a Service) Helper is a Flask-based REST API that 
 | `KEYCLOAK_URL` | Keycloak server URL | `https://auth.example.com` |
 | `KEYCLOAK_REALM` | Keycloak realm name | `master` |
 | `KEYCLOAK_CLIENT_ID` | Keycloak client ID | `mlaas-client` |
+| `KEYCLOAK_CLIENT_SECRET` | Keycloak client secret | `abc123...` |
 | `THREESCALE_ADMIN_API_URL` | 3Scale admin API URL | `https://admin.3scale.net/admin/api/` |
 | `THREESCALE_ADMIN_API_KEY` | 3Scale admin API key | `abc123...` |
 
@@ -175,6 +177,7 @@ cat > .env << EOF
 KEYCLOAK_URL=https://your-keycloak-instance.com
 KEYCLOAK_REALM=your_realm_name
 KEYCLOAK_CLIENT_ID=your_client_id
+KEYCLOAK_CLIENT_SECRET=your_client_secret
 THREESCALE_ADMIN_API_URL=https://your-admin-portal.3scale.net/admin/api/
 THREESCALE_ADMIN_API_KEY=your_3scale_admin_api_key
 EOF
