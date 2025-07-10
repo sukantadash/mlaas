@@ -1,0 +1,195 @@
+# Default values for mlaas-helper (API-Only Configuration)
+# This is a YAML-formatted file.
+
+replicaCount: 1
+
+image:
+  repository: your-registry/mlaas-helper
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  fsGroup: 2000
+
+securityContext:
+  # capabilities:
+  #   drop:
+  #   - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 5000
+  targetPort: 5000
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: mlaas-helper.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: mlaas-helper-tls
+  #    hosts:
+  #      - mlaas-helper.local
+
+# OpenShift Route configuration for API access
+route:
+  enabled: true
+  host: ""
+  path: ""
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  annotations: {}
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Environment variables for the Flask application
+env:
+  # Flask environment configuration
+  FLASK_ENV: production
+  FLASK_APP: server.py
+  PYTHONUNBUFFERED: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+  
+  # Keycloak configuration for JWT token validation
+  # IMPORTANT: These are required for the application to start
+  # Set these to your actual Keycloak instance values
+  KEYCLOAK_URL: "https://your-keycloak-instance.com"
+  KEYCLOAK_REALM: "your-realm"
+  KEYCLOAK_CLIENT_ID: "your-client-id"
+  
+  # 3Scale configuration
+  # IMPORTANT: This is required for the application to start
+  THREESCALE_ADMIN_API_URL: "https://your-3scale-admin.com/admin/api"
+
+# Secrets (should be provided via external secret management)
+secrets:
+  # 3Scale admin API key (REQUIRED)
+  THREESCALE_ADMIN_API_KEY: ""
+  # Artifactory credentials for pip configuration (OPTIONAL)
+  ARTIFACTORY_USERNAME: ""
+  ARTIFACTORY_PASSWORD: ""
+  ARTIFACTORY_URL: ""
+
+# Configuration validation
+validation:
+  # Enable validation of required environment variables during deployment
+  enabled: true
+  # Fail deployment if required variables are not set
+  failOnMissingConfig: true
+  # Required environment variables (will be checked during deployment)
+  requiredEnvVars:
+    - KEYCLOAK_URL
+    - KEYCLOAK_REALM
+    - KEYCLOAK_CLIENT_ID
+    - THREESCALE_ADMIN_API_URL
+  # Required secrets (will be checked during deployment)
+  requiredSecrets:
+    - THREESCALE_ADMIN_API_KEY
+
+# Probes configuration
+probes:
+  liveness:
+    httpGet:
+      path: /api/health
+      port: 5000
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readiness:
+    httpGet:
+      path: /api/health
+      port: 5000
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+# Startup probe for slow-starting applications
+startupProbe:
+  enabled: true
+  httpGet:
+    path: /api/health
+    port: 5000
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 30
+
+# Persistent Volume Claims
+persistence:
+  enabled: false
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 8Gi
+
+# ConfigMap for application configuration
+configMap:
+  enabled: true
+  data:
+    # Application configuration
+    LOG_LEVEL: "INFO"
+    LOG_FORMAT: "%(asctime)s - %(levelname)s: %(message)s"
+    SERVER_HOST: "0.0.0.0"
+    SERVER_PORT: "5000"
+    API_TIMEOUT: "30"
+    API_RETRY_COUNT: "3"
+    
+# Pip configuration for artifactory
+pip:
+  enabled: true
+  # pip.conf content will be populated from secrets
+  trustedHost: ""
+  indexUrl: ""
+  extraIndexUrl: ""
+
+# Additional labels
+labels: {}
+
+# Additional annotations
+annotations: {} 

@@ -1,0 +1,186 @@
+# Example values file for MLaaS Helper
+# Copy this file and modify it for your environment
+# Usage: helm install mlaas-helper ./helm-chart -f values-example.yaml
+
+# Application configuration
+replicaCount: 2
+
+image:
+  repository: your-registry/mlaas-helper
+  tag: "v1.0.0"
+  pullPolicy: IfNotPresent
+
+# =============================================================================
+# REQUIRED CONFIGURATION - YOU MUST CHANGE THESE VALUES
+# =============================================================================
+
+env:
+  # Flask configuration
+  FLASK_ENV: production
+  FLASK_APP: server.py
+  PYTHONUNBUFFERED: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+  
+  # Keycloak configuration - CHANGE THESE VALUES
+  KEYCLOAK_URL: "https://keycloak.example.com"
+  KEYCLOAK_REALM: "mlaas"
+  KEYCLOAK_CLIENT_ID: "mlaas-helper"
+  
+  # 3Scale configuration - CHANGE THIS VALUE
+  THREESCALE_ADMIN_API_URL: "https://3scale-admin.example.com/admin/api"
+
+secrets:
+  # REQUIRED: 3Scale admin API key - CHANGE THIS VALUE
+  THREESCALE_ADMIN_API_KEY: "your-3scale-admin-api-key"
+  
+  # OPTIONAL: Artifactory credentials for private repositories
+  # ARTIFACTORY_USERNAME: "your-artifactory-username"
+  # ARTIFACTORY_PASSWORD: "your-artifactory-password"
+  # ARTIFACTORY_URL: "https://artifactory.example.com"
+
+# =============================================================================
+# OPTIONAL CONFIGURATION - MODIFY AS NEEDED
+# =============================================================================
+
+# Route configuration (OpenShift)
+route:
+  enabled: true
+  host: "mlaas-helper.apps.example.com"
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+
+# Ingress configuration (Kubernetes)
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: mlaas-helper.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: mlaas-helper-tls
+      hosts:
+        - mlaas-helper.example.com
+
+# Resource limits
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 200m
+    memory: 256Mi
+
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Health probes
+probes:
+  liveness:
+    httpGet:
+      path: /api/health
+      port: 5000
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readiness:
+    httpGet:
+      path: /api/health
+      port: 5000
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+# Startup probe for slow-starting applications
+startupProbe:
+  enabled: true
+  httpGet:
+    path: /api/health
+    port: 5000
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 30
+
+# Configuration validation (recommended to keep enabled)
+validation:
+  enabled: true
+  failOnMissingConfig: true
+
+# Application configuration
+configMap:
+  enabled: true
+  data:
+    LOG_LEVEL: "INFO"
+    LOG_FORMAT: "%(asctime)s - %(levelname)s: %(message)s"
+    SERVER_HOST: "0.0.0.0"
+    SERVER_PORT: "5000"
+    API_TIMEOUT: "30"
+    API_RETRY_COUNT: "3"
+
+# Pip configuration for private repositories
+pip:
+  enabled: false  # Set to true if using private artifactory
+  trustedHost: "artifactory.example.com"
+  indexUrl: "https://artifactory.example.com/artifactory/api/pypi/pypi-virtual/simple"
+  extraIndexUrl: "https://artifactory.example.com/artifactory/api/pypi/pypi-local/simple"
+
+# Security context
+securityContext:
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+
+podSecurityContext:
+  fsGroup: 2000
+
+# Node selection and tolerations
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Additional labels and annotations
+labels: {}
+annotations: {}
+
+# Service account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Pod annotations
+podAnnotations: {}
+
+# =============================================================================
+# CONFIGURATION NOTES
+# =============================================================================
+
+# 1. KEYCLOAK_URL: Your Keycloak server URL (e.g., "https://auth.example.com")
+# 2. KEYCLOAK_REALM: Your Keycloak realm name (e.g., "master" or "mlaas")
+# 3. KEYCLOAK_CLIENT_ID: Your Keycloak client ID (e.g., "mlaas-helper")
+# 4. THREESCALE_ADMIN_API_URL: Your 3Scale admin API URL (must end with /admin/api)
+# 5. THREESCALE_ADMIN_API_KEY: Your 3Scale admin API key (keep secret!)
+#
+# For production deployments:
+# - Use external secrets management (Vault, AWS Secrets Manager, etc.)
+# - Enable resource limits and HPA
+# - Configure proper ingress/routes with TLS
+# - Set up monitoring and alerting
+#
+# For development/testing:
+# - You can disable validation temporarily
+# - Use lower resource limits
+# - Single replica is sufficient 

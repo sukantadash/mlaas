@@ -1,203 +1,623 @@
+# MLaaS (Machine Learning as a Service)
 
-# Helix plugin script for 3Scale SSO and API Key Management
+MLaaS is a comprehensive API management platform designed to simplify access to machine learning services through automated API key provisioning, user authentication, and service discovery.
 
-This Python script automates the process of authenticating with Keycloak SSO, managing your 3Scale developer account, and generating or listing 3Scale API keys for your services. It simplifies the setup of API access by handling user authentication and interactions with the 3Scale Admin API. This command can be used as a plugin in helix
+## 🏗️ Architecture Overview
 
----
+The MLaaS platform consists of three main components:
 
-## Features
+1. **Keycloak** - Identity and access management server
+2. **MLaaS Helper** - API management and service provisioning server  
+3. **MLaaS CLI** - Command-line interface for end users
 
-- **Keycloak SSO Integration**: Authenticates users via Red Hat SSO (Keycloak) using username/password or by reusing existing tokens.
-- **3Scale Account Management**: Automatically finds or creates a 3Scale developer account based on the authenticated SOEID (Keycloak username) and email.
-- **Service Listing**: Lists all available 3Scale services (models) and indicates which ones your account already has an API key for, including their proxy endpoints and authentication methods.
-- **API Key Initialization**: Generates a new API key for a specified service, or returns an existing one if available.
-- **Persistent Configuration**: Stores Keycloak tokens in a hidden `.ini` file in your home directory (`~/.threescale_sso_config.ini`) to minimize re-authentication prompts.
-
----
-
-## Prerequisites
-
-Before running the script, ensure you have the following:
-
-- **Python 3.9.18 or higher**  
-  (Tested with Python 3.9.18+)
-
-- **Required Python Libraries**  
-  Installed via `pip`:
-  - `requests`
-  - `pyjwt`
-  - `lxml` (optional, but commonly used for robustness)
-
-- **Environment Variables**  
-  Critical API URLs and keys must be set as environment variables.
-
----
-
-## Setup and Installation
-
-### 1. Download the Script and Dependencies
-
-Save the provided Python script as `mlaas.py`.  
-Create a `requirements.txt` file in the same directory:
+### Authentication Flow
 
 ```
-requests>=2.25.1  
-pyjwt>=2.0.0
+[User] → [MLaaS CLI] → [Keycloak] → [JWT Token]
+                    ↓
+[MLaaS CLI] → [MLaaS Helper] (with JWT Token) → [3Scale API Management]
 ```
 
-### 2. Recommended: Create a Python Virtual Environment
+## 📋 Table of Contents
 
+- [Features](#features)
+- [Architecture Components](#architecture-components)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [API Reference](#api-reference)
+- [Deployment](#deployment)
+- [Development](#development)
+- [Contributing](#contributing)
+
+## ✨ Features
+
+### Core Functionality
+- **🔐 Authentication**: Secure user authentication via Keycloak with JWT tokens
+- **🔑 API Key Management**: Automated API key generation and management through 3Scale
+- **📋 Service Discovery**: Dynamic discovery and listing of available ML services
+- **🚦 Rate Limiting**: Built-in rate limiting for API endpoints
+- **💻 CLI Interface**: User-friendly command-line interface for service interaction
+- **🔍 Health Monitoring**: Comprehensive health checks and monitoring
+- **📊 Structured Logging**: Advanced logging with structured output for observability
+
+### Security Features
+- JWT token-based authentication with Keycloak
+- Token refresh and expiration handling
+- Secure credential storage and management
+- Non-root container execution
+- Input validation and sanitization
+
+## 🏗️ Architecture Components
+
+### 1. **Keycloak Authentication Server**
+- **Purpose**: Identity and access management
+- **Technology**: Keycloak OpenID Connect
+- **Key Features**:
+  - JWT token issuance and validation
+  - User authentication and authorization
+  - OAuth2/OpenID Connect flows
+  - Token refresh capabilities
+
+### 2. **MLaaS Helper Server** (`mlaas-helper/`)
+- **Purpose**: API management and service provisioning
+- **Technology**: Flask with Gunicorn WSGI server
+- **Key Features**:
+  - RESTful API endpoints
+  - JWT token validation
+  - 3Scale API management integration
+  - Service discovery and management
+  - Health check endpoints
+
+### 3. **MLaaS CLI Client** (`mlaas-cli/`)
+- **Purpose**: Command-line interface for end users
+- **Technology**: Python 3.9+
+- **Key Features**:
+  - Direct Keycloak authentication
+  - JWT token management and refresh
+  - Service listing and discovery
+  - API key initialization
+  - Configuration management
+  - Comprehensive error handling
+
+### 4. **API Management Layer**
+- **3Scale**: API gateway and management platform
+- **Service Registry**: Dynamic service discovery
+- **Key Provisioning**: Automated API key generation
+
+### 5. **Deployment Infrastructure**
+- **Containerization**: Docker/Podman containers
+- **Orchestration**: Kubernetes/OpenShift
+- **Helm Charts**: Kubernetes deployment templates
+- **CI/CD**: Automated build and deployment
+
+## 🛠️ Prerequisites
+
+### System Requirements
+- Python 3.9 or higher
+- pip package manager
+- Access to Keycloak authentication server
+- Access to 3Scale API management platform
+- Access to MLaaS Helper server
+
+### Configuration
+The MLaaS CLI comes with hardcoded configuration for production use:
+
+- **Keycloak URL**: `https://keycloak.prod.example.com`
+- **Keycloak Realm**: `mlaas`
+- **Keycloak Client ID**: `mlaas-client`
+- **MLaaS Helper URL**: `https://mlaas-helper.prod.example.com`
+
+These values can be overridden using command-line parameters if needed.
+
+### Server Environment Variables (for mlaas-helper)
 ```bash
-python -m venv venv
+KEYCLOAK_URL=https://your-keycloak-server.com
+KEYCLOAK_REALM=your-realm
+KEYCLOAK_CLIENT_ID=your-client-id
+THREESCALE_ADMIN_API_URL=https://your-3scale-admin.com
+THREESCALE_ADMIN_API_KEY=your-3scale-admin-key
+FLASK_ENV=production
+```
 
-# On Windows:
-.env\Scriptsctivate
+## 🚀 Installation
 
-# On macOS/Linux:
+### MLaaS CLI Installation
+
+#### Option 1: Binary Installation (Recommended)
+
+1. **Download the pre-built binary**:
+```bash
+# Download from releases page or build locally (see below)
+wget https://github.com/your-org/mlaas/releases/latest/download/mlaas-cli
+chmod +x mlaas-cli
+```
+
+2. **Test the installation**:
+```bash
+./mlaas-cli --health
+```
+
+#### Option 2: Development Installation
+
+1. **Clone the repository**:
+```bash
+git clone <repository-url>
+cd mlaas/mlaas-cli
+```
+
+2. **Run the setup script**:
+```bash
+chmod +x setup.sh
+./setup.sh
+```
+
+3. **Test the installation**:
+```bash
+./client.py --health
+```
+
+#### Option 3: Build Binary from Source
+
+1. **Clone and setup**:
+```bash
+git clone <repository-url>
+cd mlaas/mlaas-cli
+./setup.sh
+```
+
+2. **Activate virtual environment**:
+```bash
 source venv/bin/activate
 ```
 
-### 3. Install Python Dependencies
+3. **Build binary (using build script)**:
+```bash
+chmod +x build.sh
+./build.sh
+```
 
+**Or build manually with PyInstaller**:
+```bash
+pyinstaller --onefile --name mlaas-cli client.py
+```
+
+4. **Binary location**:
+```bash
+# Binary will be created at: dist/mlaas-cli
+./dist/mlaas-cli --health
+```
+
+5. **Install system-wide (optional)**:
+```bash
+sudo cp dist/mlaas-cli /usr/local/bin/
+mlaas-cli --health
+```
+
+### MLaaS Helper Installation
+
+1. **Navigate to helper directory**:
+```bash
+cd mlaas/mlaas-helper
+```
+
+2. **Create virtual environment**:
+```bash
+python -m venv venv
+source venv/bin/activate
+```
+
+3. **Install dependencies**:
 ```bash
 pip install -r requirements.txt
 ```
 
----
-
-## Set Environment Variables
-
-Replace the placeholder values with your actual Keycloak and 3Scale details.
-
-- `KEYCLOAK_URL`: e.g., `https://your-keycloak-instance.com`
-- `KEYCLOAK_REALM`: e.g., `your_realm_name`
-- `KEYCLOAK_CLIENT_ID`: e.g., `your_client_id_for_this_app`
-- `KEYCLOAK_CLIENT_SECRET`: e.g., `your_client_password_for_this_app`
-- `THREESCALE_ADMIN_API_URL`: e.g., `https://your-admin-portal.3scale.net/admin/api/`
-- `THREESCALE_ADMIN_API_KEY`: Your 3Scale Admin Portal API Key
-
-### Windows (Command Prompt)
-
-```cmd
-set KEYCLOAK_URL=https://your-keycloak-instance.com
-set KEYCLOAK_REALM=your_realm_name
-set KEYCLOAK_CLIENT_ID=your_client_id_for_this_app
-set THREESCALE_ADMIN_API_URL=https://your-admin-portal.3scale.net/admin/api/
-set THREESCALE_ADMIN_API_KEY=Your3scaleAdminAPIKey
-set KEYCLOAK_CLIENT_SECRET=YourClientSecret
-```
-
-### Windows (PowerShell)
-
-```powershell
-$env:KEYCLOAK_URL="https://your-keycloak-instance.com"
-$env:KEYCLOAK_REALM="your_realm_name"
-$env:KEYCLOAK_CLIENT_ID="your_client_id_for_this_app"
-$env:THREESCALE_ADMIN_API_URL="https://your-admin-portal.3scale.net/admin/api/"
-$env:THREESCALE_ADMIN_API_KEY="Your3scaleAdminAPIKey"
-# Optional:
-$env:KEYCLOAK_CLIENT_SECRET="YourClientSecret"
-```
-
-### macOS / Linux (Bash/Zsh)
-
+4. **Set environment variables**:
 ```bash
-export KEYCLOAK_URL="https://your-keycloak-instance.com"
-export KEYCLOAK_REALM="your_realm_name"
-export KEYCLOAK_CLIENT_ID="your_client_id_for_this_app"
-export THREESCALE_ADMIN_API_URL="https://your-admin-portal.3scale.net/admin/api/"
-export THREESCALE_ADMIN_API_KEY="Your3scaleAdminAPIKey"
-# Optional:
-export KEYCLOAK_CLIENT_SECRET="YourClientSecret"
+export KEYCLOAK_URL=https://your-keycloak-server.com
+export KEYCLOAK_REALM=your-realm
+export KEYCLOAK_CLIENT_ID=your-client-id
+export THREESCALE_ADMIN_API_URL=https://your-3scale-admin.com
+export THREESCALE_ADMIN_API_KEY=your-3scale-admin-key
 ```
 
-To make these persistent, add them to your shell profile (e.g., `~/.bashrc`, `~/.zshrc`) and run:
-
+5. **Run the server**:
 ```bash
-source ~/.bashrc  # or source ~/.zshrc
+python server.py
 ```
 
----
+## ⚙️ Configuration
 
-## Usage
+### CLI Configuration
+The CLI stores configuration in `~/.mlaas_client_config.ini`:
 
-Navigate to the directory where `mlaas.py` is located.
+```ini
+[auth]
+access_token = your-jwt-token
+refresh_token = your-refresh-token
+expires_at = 1234567890
+```
 
-### Running Without Arguments (Shows Help)
+### Override Configuration
 
+The CLI uses hardcoded production values but allows command-line overrides:
+
+| Parameter | Default Value | Description |
+|-----------|---------------|-------------|
+| `--keycloak-url` | `https://keycloak.prod.example.com` | Keycloak server URL |
+| `--keycloak-realm` | `mlaas` | Keycloak realm name |
+| `--keycloak-client-id` | `mlaas-client` | Keycloak client ID |
+| `--mlaas-helper-url` | `https://mlaas-helper.prod.example.com` | MLaaS Helper server URL |
+
+### Server Environment Variables (mlaas-helper only)
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `KEYCLOAK_URL` | Keycloak server URL | Yes |
+| `KEYCLOAK_REALM` | Keycloak realm name | Yes |
+| `KEYCLOAK_CLIENT_ID` | Keycloak client ID | Yes |
+| `THREESCALE_ADMIN_API_URL` | 3Scale admin API URL | Yes |
+| `THREESCALE_ADMIN_API_KEY` | 3Scale admin API key | Yes |
+| `FLASK_ENV` | Flask environment | No |
+
+## 📖 Usage
+
+### CLI Usage
+
+#### Using Binary (Recommended)
+
+1. **Check server health**:
 ```bash
-python mlaas.py
-# OR if using PyInstaller executable:
-./mlaas       # On Linux/macOS
-mlaas.exe     # On Windows
+mlaas-cli --health
 ```
 
----
-
-### Listing Services and API Key Status
-
+2. **Show current configuration**:
 ```bash
-python mlaas.py --list
+mlaas-cli --config
 ```
 
----
-
-### Initializing an API Key for a Service
-
-#### By Service Name:
-
+3. **List available services**:
 ```bash
-python mlaas.py --init name="Your Service Name"
+mlaas-cli --list
 ```
 
-#### By Service ID:
-
+4. **Initialize API key for a service**:
 ```bash
-python mlaas.py --init id="123456"
+mlaas-cli --init id=service-123
+mlaas-cli --init name="ML Service Name"
 ```
 
----
-
-### Interactive Flow (No Arguments)
-
-If you run the script without `--list` or `--init`, it will:
-
-1. Attempt Keycloak authentication.
-2. Find or create your 3Scale account.
-3. List all available services with their proxy URLs and authentication methods.
-4. Prompt you to select a service by number.
-5. Proceed to generate or retrieve your API key.
-
----
-
-## Packaging as a Standalone Executable
-
-Use **PyInstaller** to build a platform-specific executable.
-
-### 1. Install PyInstaller
-
+5. **Clear stored tokens**:
 ```bash
-pip install pyinstaller
+mlaas-cli --logout
 ```
 
-### 2. Build the Executable
-
+6. **Override configuration if needed**:
 ```bash
-pyinstaller --onefile --name mlaas mlaas.py
+mlaas-cli --keycloak-url https://custom-keycloak.com --list
+mlaas-cli --mlaas-helper-url https://custom-helper.com --health
 ```
 
-### 3. Locate the Executable
+7. **Get help**:
+```bash
+mlaas-cli --help
+```
 
-- **Windows**: `dist\mlaas.exe`
-- **macOS / Linux**: `dist/mlaas`
+#### Using Python Script (Development)
 
----
+Replace `mlaas-cli` with `./client.py` in all the above examples.
 
-## Configuration File
+### Authentication Flow
 
-The script saves Keycloak token information in:
+The CLI handles authentication automatically:
 
-- **Linux/macOS**: `~/.threescale_sso_config.ini`
-- **Windows**: `C:\Users\<YourUsername>\.threescale_sso_config.ini`
+1. **First use**: CLI prompts for Keycloak credentials
+2. **Token storage**: JWT tokens are stored locally
+3. **Token refresh**: Expired tokens are automatically refreshed
+4. **Re-authentication**: If refresh fails, CLI prompts for credentials again
 
-This helps reduce the need to re-authenticate frequently by reusing stored tokens.
+### Programmatic Usage
+
+```python
+from client import MLaaSClient
+
+# Initialize client (uses hardcoded production configuration)
+client = MLaaSClient()
+
+# Or override configuration if needed
+client = MLaaSClient(
+    keycloak_url="https://custom-keycloak.com",
+    mlaas_helper_url="https://custom-helper.com"
+)
+
+# Check configuration
+client.show_config()
+
+# List services (will authenticate if needed)
+services = client.make_request('GET', '/api/services')
+print(f"Available services: {services}")
+
+# Initialize API key
+response = client.make_request('POST', '/api/services/init', 
+                              data={'service_id': 'your-service-id'})
+print(f"API Key: {response.get('api_key')}")
+```
+
+## 🔌 API Reference
+
+### MLaaS Helper API Endpoints
+
+#### `GET /api/health`
+Check server health status (no authentication required).
+
+**Response**:
+```json
+{
+    "status": "success",
+    "data": {
+        "status": "healthy"
+    }
+}
+```
+
+#### `GET /api/services`
+List all available services for the authenticated user.
+
+**Headers**:
+```
+Authorization: Bearer <jwt-token>
+```
+
+**Response**:
+```json
+{
+    "status": "success",
+    "data": {
+        "services": [
+            {
+                "id": "service-1",
+                "name": "ML Service 1",
+                "proxy_endpoint": "https://api.example.com/ml-service-1",
+                "authentication_method": "api_key",
+                "has_api_key": true,
+                "api_key": "your-api-key"
+            }
+        ],
+        "user": {
+            "soeid": "user123",
+            "email": "user@example.com"
+        },
+        "account_id": "3scale-account-id"
+    }
+}
+```
+
+#### `POST /api/services/init`
+Initialize or retrieve API key for a specific service.
+
+**Headers**:
+```
+Authorization: Bearer <jwt-token>
+```
+
+**Request Body**:
+```json
+{
+    "service_id": "service-1"
+}
+```
+
+**Response**:
+```json
+{
+    "status": "success",
+    "data": {
+        "api_key": "your-generated-api-key",
+        "service": {
+            "id": "service-1",
+            "name": "ML Service 1",
+            "proxy_endpoint": "https://api.example.com/ml-service-1",
+            "authentication_method": "api_key"
+        },
+        "plan": {
+            "id": "plan-1",
+            "name": "Basic Plan"
+        },
+        "is_new": true,
+        "account_id": "3scale-account-id"
+    }
+}
+```
+
+### Error Responses
+
+All API endpoints return standardized error responses:
+
+```json
+{
+    "status": "error",
+    "error": {
+        "code": "ERROR_CODE",
+        "message": "Human readable error message"
+    }
+}
+```
+
+Common error codes:
+- `MISSING_AUTH` (401): Missing or invalid authorization header
+- `INVALID_TOKEN` (401): Invalid or expired JWT token
+- `ACCOUNT_NOT_FOUND` (404): User account not found in 3Scale
+- `SERVICE_NOT_FOUND` (404): Requested service not found
+- `CONFIG_ERROR` (500): Server configuration error
+
+## 🚀 Deployment
+
+### Docker Deployment
+
+1. **Build the MLaaS Helper container**:
+```bash
+cd mlaas/mlaas-helper
+docker build -t mlaas-helper -f Containerfile .
+```
+
+2. **Run the container**:
+```bash
+docker run -p 5000:5000 \
+  -e KEYCLOAK_URL=https://your-keycloak-server.com \
+  -e KEYCLOAK_REALM=your-realm \
+  -e KEYCLOAK_CLIENT_ID=your-client-id \
+  -e THREESCALE_ADMIN_API_URL=https://your-3scale-admin.com \
+  -e THREESCALE_ADMIN_API_KEY=your-3scale-admin-key \
+  mlaas-helper
+```
+
+### Kubernetes Deployment
+
+1. **Install MLaaS Helper using Helm**:
+```bash
+cd mlaas/mlaas-helper/helm-chart
+helm install mlaas-helper . -f values-example.yaml \
+  --set keycloak.url=https://your-keycloak-server.com \
+  --set keycloak.realm=your-realm \
+  --set keycloak.clientId=your-client-id \
+  --set threescale.adminApiUrl=https://your-3scale-admin.com \
+  --set threescale.adminApiKey=your-3scale-admin-key
+```
+
+2. **OpenShift Deployment**:
+```bash
+oc apply -f buildconfig.yaml
+oc start-build mlaas-helper
+```
+
+## 💻 Development
+
+### Development Setup
+
+1. **Install development dependencies**:
+```bash
+pip install -r requirements.txt
+pip install pytest black flake8 mypy
+```
+
+2. **Run tests**:
+```bash
+pytest
+```
+
+3. **Code formatting**:
+```bash
+black .
+flake8 .
+mypy .
+```
+
+### Project Structure
+
+```
+mlaas/
+├── mlaas-cli/                 # CLI client
+│   ├── client.py              # Main CLI client (source)
+│   ├── example_usage.py       # Usage examples
+│   ├── requirements.txt       # CLI dependencies (includes PyInstaller)
+│   ├── setup.sh              # CLI setup script
+│   ├── dist/                  # Binary distribution (after build)
+│   │   └── mlaas-cli          # Packaged binary
+│   └── build/                 # PyInstaller build files
+├── mlaas-helper/             # MLaaS Helper server
+│   ├── server.py              # Main server application
+│   ├── requirements.txt       # Server dependencies
+│   ├── Containerfile          # Docker configuration
+│   ├── buildconfig.yaml       # OpenShift build config
+│   ├── helm-chart/            # Kubernetes deployment
+│   │   ├── Chart.yaml
+│   │   ├── values.yaml
+│   │   ├── values-example.yaml
+│   │   └── templates/
+│   └── setup.sh              # Server setup script
+└── README.md                  # This file
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Commit your changes: `git commit -m 'Add amazing feature'`
+4. Push to the branch: `git push origin feature/amazing-feature`
+5. Open a Pull Request
+
+### Code Style
+- Follow PEP 8 for Python code
+- Use type hints where appropriate
+- Write comprehensive docstrings
+- Include unit tests for new features
+
+## 📝 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🆘 Support
+
+For support and questions:
+- Create an issue in the repository
+- Contact the development team
+- Check the documentation and examples
+
+## 🗺️ Roadmap
+
+- [x] Direct Keycloak authentication in CLI
+- [x] JWT token management and refresh
+- [x] Helm chart with configuration validation
+- [x] Binary packaging with PyInstaller
+- [x] Hardcoded production configuration
+- [x] Streamlined logging with error-level default
+- [ ] Enhanced error handling and recovery
+- [ ] Metrics and monitoring integration
+- [ ] Multi-environment support
+- [ ] Advanced caching mechanisms
+- [ ] WebSocket support for real-time updates
+- [ ] GraphQL API support
+- [ ] Enhanced security features
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+1. **Authentication fails**: 
+   - Check hardcoded Keycloak configuration matches your environment
+   - Override configuration if needed: `--keycloak-url https://your-keycloak.com`
+   - Verify network connectivity to Keycloak
+   - Ensure user has access to the specified realm
+
+2. **MLaaS Helper connection fails**:
+   - Check hardcoded MLaaS Helper URL matches your environment
+   - Override if needed: `--mlaas-helper-url https://your-helper.com`
+   - Verify the server is running and accessible
+   - Check firewall and network configuration
+
+3. **API key initialization fails**:
+   - Verify 3Scale configuration on the server
+   - Check user permissions in 3Scale
+   - Ensure service exists and is configured
+
+4. **Token refresh fails**:
+   - Clear stored tokens: `mlaas-cli --logout`
+   - Re-authenticate: `mlaas-cli --list`
+   - Check Keycloak token settings
+
+5. **Binary execution fails**:
+   - Ensure binary has execute permissions: `chmod +x mlaas-cli`
+   - Check if binary is compatible with your OS architecture
+   - Try rebuilding from source if needed
+
+### Debug Mode
+
+Enable verbose logging for troubleshooting:
+```bash
+# Binary
+mlaas-cli --verbose --health
+
+# Python script (development)
+./client.py --verbose --health
+``` 

@@ -1,0 +1,101 @@
+{{- if .Values.validation.enabled }}
+{{- if .Values.validation.failOnMissingConfig }}
+
+{{/* Validate required environment variables */}}
+{{- range .Values.validation.requiredEnvVars }}
+  {{- $envVar := . }}
+  {{- $envValue := index $.Values.env $envVar }}
+  {{- if not $envValue }}
+    {{- fail (printf "Required environment variable '%s' is not set. Please configure it in values.yaml" $envVar) }}
+  {{- end }}
+  {{- if eq $envValue "" }}
+    {{- fail (printf "Required environment variable '%s' is empty. Please set a valid value in values.yaml" $envVar) }}
+  {{- end }}
+  {{- if hasPrefix "https://your-" $envValue }}
+    {{- fail (printf "Required environment variable '%s' has placeholder value '%s'. Please set your actual value in values.yaml" $envVar $envValue) }}
+  {{- end }}
+  {{- if hasPrefix "your-" $envValue }}
+    {{- fail (printf "Required environment variable '%s' has placeholder value '%s'. Please set your actual value in values.yaml" $envVar $envValue) }}
+  {{- end }}
+{{- end }}
+
+{{/* Validate required secrets */}}
+{{- range .Values.validation.requiredSecrets }}
+  {{- $secretVar := . }}
+  {{- $secretValue := index $.Values.secrets $secretVar }}
+  {{- if not $secretValue }}
+    {{- fail (printf "Required secret '%s' is not set. Please configure it in values.yaml" $secretVar) }}
+  {{- end }}
+  {{- if eq $secretValue "" }}
+    {{- fail (printf "Required secret '%s' is empty. Please set a valid value in values.yaml" $secretVar) }}
+  {{- end }}
+{{- end }}
+
+{{/* Validate URLs have proper format */}}
+{{- if .Values.env.KEYCLOAK_URL }}
+  {{- if not (hasPrefix "http://" .Values.env.KEYCLOAK_URL) }}
+    {{- if not (hasPrefix "https://" .Values.env.KEYCLOAK_URL) }}
+      {{- fail (printf "KEYCLOAK_URL must start with http:// or https://. Current value: %s" .Values.env.KEYCLOAK_URL) }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+
+{{- if .Values.env.THREESCALE_ADMIN_API_URL }}
+  {{- if not (hasPrefix "http://" .Values.env.THREESCALE_ADMIN_API_URL) }}
+    {{- if not (hasPrefix "https://" .Values.env.THREESCALE_ADMIN_API_URL) }}
+      {{- fail (printf "THREESCALE_ADMIN_API_URL must start with http:// or https://. Current value: %s" .Values.env.THREESCALE_ADMIN_API_URL) }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+
+{{- end }}
+{{- end }}
+
+{{/*
+Create a validation ConfigMap to document the configuration
+*/}}
+{{- if .Values.validation.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mlaas-helper.fullname" . }}-validation
+  labels:
+    {{- include "mlaas-helper.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+data:
+  validation-status: "passed"
+  validation-timestamp: {{ now | quote }}
+  required-env-vars: |
+    {{- range .Values.validation.requiredEnvVars }}
+    - {{ . }}
+    {{- end }}
+  required-secrets: |
+    {{- range .Values.validation.requiredSecrets }}
+    - {{ . }}
+    {{- end }}
+  configuration-notes: |
+    This ConfigMap is created to validate the MLaaS Helper configuration.
+    
+    Required Environment Variables:
+    {{- range .Values.validation.requiredEnvVars }}
+    - {{ . }}: {{ index $.Values.env . }}
+    {{- end }}
+    
+    Required Secrets:
+    {{- range .Values.validation.requiredSecrets }}
+    - {{ . }}: {{ if index $.Values.secrets . }}*** SET ***{{ else }}*** NOT SET ***{{ end }}
+    {{- end }}
+    
+    Configuration Tips:
+    - Set KEYCLOAK_URL to your actual Keycloak instance URL
+    - Set KEYCLOAK_REALM to your Keycloak realm name
+    - Set KEYCLOAK_CLIENT_ID to your Keycloak client ID
+    - Set THREESCALE_ADMIN_API_URL to your 3Scale admin API URL
+    - Set THREESCALE_ADMIN_API_KEY as a secret
+    
+    For production deployments, consider using external secret management
+    systems like Vault, AWS Secrets Manager, or Azure Key Vault.
+{{- end }} 

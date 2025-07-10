@@ -1,0 +1,68 @@
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: mlaas-helper-build
+  labels:
+    app: mlaas-helper
+    component: build
+spec:
+  nodeSelector: null
+  output:
+    to:
+      kind: DockerImage
+      name: 'docker://your-registry/mlaas-helper:latest'
+    pushSecret:
+      name: artifactory-secret
+  resources:
+    limits:
+      cpu: 1500m
+      memory: 8Gi
+    requests:
+      cpu: 1500m
+      memory: 4Gi
+  successfulBuildsHistoryLimit: 1
+  failedBuildsHistoryLimit: 1
+  strategy:
+    type: Docker
+    dockerStrategy:
+      pullSecret:
+        name: artifactory-secret
+      env:
+        - name: ARTIFACTORY_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: artifactory-secret
+              key: ARTIFACTORY_USERNAME
+        - name: ARTIFACTORY_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: artifactory-secret
+              key: ARTIFACTORY_PASSWORD
+        - name: ARTIFACTORY_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: artifactory-secret
+              key: ARTIFACTORY_API_KEY
+        - name: ARTIFACTORY_IDENTITY_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: artifactory-secret
+              key: ARTIFACTORY_IDENTITY_TOKEN
+        - name: ARTIFACTORY_PUSH_IDENTITY_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: artifactory-secret
+              key: ARTIFACTORY_PUSH_IDENTITY_TOKEN
+        - name: ARTIFACTORY_URL
+          valueFrom:
+            secretKeyRef:
+              name: artifactory-secret
+              key: ARTIFACTORY_URL
+      dockerfilePath: Containerfile
+  postCommit: {}
+  source:
+    type: Binary
+    binary: {}
+  triggers:
+    - type: ConfigChange
+  runPolicy: Serial 
