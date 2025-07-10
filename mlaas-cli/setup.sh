@@ -61,6 +61,7 @@ cat > .env.example << 'EOF'
 KEYCLOAK_URL=https://your-keycloak-server.com
 KEYCLOAK_REALM=your-realm
 KEYCLOAK_CLIENT_ID=your-client-id
+KEYCLOAK_CLIENT_SECRET=your-client-secret
 
 # MLaaS Helper Configuration (Optional)
 MLAAS_HELPER_URL=http://localhost:5000
@@ -69,6 +70,7 @@ MLAAS_HELPER_URL=http://localhost:5000
 # KEYCLOAK_URL=https://keycloak.prod.example.com
 # KEYCLOAK_REALM=mlaas-prod
 # KEYCLOAK_CLIENT_ID=mlaas-client
+# KEYCLOAK_CLIENT_SECRET=your-production-client-secret
 # MLAAS_HELPER_URL=https://mlaas-helper.prod.example.com
 EOF
 
@@ -86,6 +88,7 @@ echo "2. Set environment variables:"
 echo "   export KEYCLOAK_URL=https://your-keycloak-server.com"
 echo "   export KEYCLOAK_REALM=your-realm"
 echo "   export KEYCLOAK_CLIENT_ID=your-client-id"
+echo "   export KEYCLOAK_CLIENT_SECRET=your-client-secret"
 echo "   export MLAAS_HELPER_URL=https://your-mlaas-helper.com"
 echo
 echo "3. Test the client:"

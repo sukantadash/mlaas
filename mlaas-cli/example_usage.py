@@ -25,6 +25,7 @@ def main():
         os.environ['KEYCLOAK_URL'] = 'https://keycloak.example.com'
         os.environ['KEYCLOAK_REALM'] = 'mlaas'
         os.environ['KEYCLOAK_CLIENT_ID'] = 'mlaas-client'
+        os.environ['KEYCLOAK_CLIENT_SECRET'] = 'example-client-secret'
         os.environ['MLAAS_HELPER_URL'] = 'http://localhost:5000'
         print("Note: Using example environment variables. Set actual values for real usage.")
     
@@ -44,6 +45,7 @@ def main():
             print("     KEYCLOAK_URL")
             print("     KEYCLOAK_REALM")
             print("     KEYCLOAK_CLIENT_ID")
+            print("     KEYCLOAK_CLIENT_SECRET")
             print("\n   Optional environment variables:")
             print("     MLAAS_HELPER_URL (default: http://localhost:5000)")
             return
@@ -193,6 +195,7 @@ def main():
         print("   export KEYCLOAK_URL=https://your-keycloak-server.com")
         print("   export KEYCLOAK_REALM=your-realm")
         print("   export KEYCLOAK_CLIENT_ID=your-client-id")
+        print("   export KEYCLOAK_CLIENT_SECRET=your-client-secret")
         print("   export MLAAS_HELPER_URL=https://your-mlaas-helper.com")
         print("2. Start the MLaaS Helper server")
         print("3. Run: python client.py --list")

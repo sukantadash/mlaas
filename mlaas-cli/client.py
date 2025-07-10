@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_KEYCLOAK_URL = "https://keycloak.prod.example.com"
 DEFAULT_KEYCLOAK_REALM = "mlaas"
 DEFAULT_KEYCLOAK_CLIENT_ID = "mlaas-client"
+DEFAULT_KEYCLOAK_CLIENT_SECRET = ""  # Must be provided via environment variable or config
 DEFAULT_MLAAS_HELPER_URL = "https://mlaas-helper.prod.example.com"
 
 # --- Configuration Management ---
@@ -49,10 +50,11 @@ class ConfigurationError(MLaaSClientError):
 class KeycloakAuthClient:
     """Handle Keycloak authentication using OAuth2 flow"""
     
-    def __init__(self, keycloak_url: str, realm: str, client_id: str):
+    def __init__(self, keycloak_url: str, realm: str, client_id: str, client_secret: str):
         self.keycloak_url = keycloak_url.rstrip('/')
         self.realm = realm
         self.client_id = client_id
+        self.client_secret = client_secret
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'MLaaS-Client/1.0',
@@ -71,6 +73,7 @@ class KeycloakAuthClient:
             data = {
                 'grant_type': 'password',
                 'client_id': self.client_id,
+                'client_secret': self.client_secret,
                 'username': username,
                 'password': password,
                 'scope': 'openid profile email'
@@ -108,16 +111,25 @@ class KeycloakAuthClient:
 
 class MLaaSClient:
     def __init__(self, mlaas_helper_url: Optional[str] = None, keycloak_url: Optional[str] = None, 
-                 keycloak_realm: Optional[str] = None, keycloak_client_id: Optional[str] = None):
+                 keycloak_realm: Optional[str] = None, keycloak_client_id: Optional[str] = None, 
+                 keycloak_client_secret: Optional[str] = None):
         # Use hardcoded values with fallback to parameters
         self.mlaas_helper_url = mlaas_helper_url or DEFAULT_MLAAS_HELPER_URL
         self.keycloak_url = keycloak_url or DEFAULT_KEYCLOAK_URL
         self.keycloak_realm = keycloak_realm or DEFAULT_KEYCLOAK_REALM
         self.keycloak_client_id = keycloak_client_id or DEFAULT_KEYCLOAK_CLIENT_ID
+        self.keycloak_client_secret = keycloak_client_secret or DEFAULT_KEYCLOAK_CLIENT_SECRET or os.getenv('KEYCLOAK_CLIENT_SECRET', '')
         
         # Validate URLs
         self.mlaas_helper_url = self._validate_server_url(self.mlaas_helper_url)
         self.keycloak_url = self._validate_server_url(self.keycloak_url)
+        
+        # Validate client secret for confidential clients
+        if not self.keycloak_client_secret:
+            raise ConfigurationError(
+                "Keycloak client secret is required for confidential clients. "
+                "Set KEYCLOAK_CLIENT_SECRET environment variable or pass --keycloak-client-secret"
+            )
         
         # Initialize HTTP session
         self.session = requests.Session()
@@ -128,7 +140,7 @@ class MLaaSClient:
         
         # Initialize Keycloak client
         self.keycloak_client = KeycloakAuthClient(
-            self.keycloak_url, self.keycloak_realm, self.keycloak_client_id
+            self.keycloak_url, self.keycloak_realm, self.keycloak_client_id, self.keycloak_client_secret
         )
         
         # Load configuration and tokens
@@ -361,6 +373,7 @@ class MLaaSClient:
             data = {
                 'grant_type': 'refresh_token',
                 'client_id': self.keycloak_client_id,
+                'client_secret': self.keycloak_client_secret,
                 'refresh_token': refresh_token
             }
             
@@ -603,6 +616,7 @@ class MLaaSClient:
         print(f"Keycloak URL: {self.keycloak_url}")
         print(f"Keycloak Realm: {self.keycloak_realm}")
         print(f"Keycloak Client ID: {self.keycloak_client_id}")
+        print(f"Keycloak Client Secret: {'✓ Configured' if self.keycloak_client_secret else '✗ Not configured'}")
         
         # Check token status
         stored_token = self.get_stored_token()
@@ -651,6 +665,12 @@ Examples:
         '--keycloak-client-id', 
         default=None,
         help=f'Keycloak client ID (default: {DEFAULT_KEYCLOAK_CLIENT_ID})'
+    )
+    
+    parser.add_argument(
+        '--keycloak-client-secret', 
+        default=None,
+        help='Keycloak client secret (can also be set via KEYCLOAK_CLIENT_SECRET env var)'
     )
     
     parser.add_argument(
@@ -706,7 +726,8 @@ Examples:
             mlaas_helper_url=args.mlaas_helper_url,
             keycloak_url=args.keycloak_url,
             keycloak_realm=args.keycloak_realm,
-            keycloak_client_id=args.keycloak_client_id
+            keycloak_client_id=args.keycloak_client_id,
+            keycloak_client_secret=args.keycloak_client_secret
         )
         
         if args.logout:
