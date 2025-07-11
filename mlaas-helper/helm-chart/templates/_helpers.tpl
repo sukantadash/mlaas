@@ -14,27 +14,15 @@ If release name contains chart name it will be used as a full name.
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
-{{- $name := default .Chart.Name .Values.nameOverride }}
-{{- if contains $name .Release.Name }}
-{{- .Release.Name | trunc 63 | trimSuffix "-" }}
-{{- else }}
-{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+{{- printf "%s-%s" .Release.Name (include "mlaas-helper.name" .) | trunc 63 | trimSuffix "-" }}
 {{- end }}
-{{- end }}
-{{- end }}
-
-{{/*
-Create chart name and version as used by the chart label.
-*/}}
-{{- define "mlaas-helper.chart" -}}
-{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
 {{- define "mlaas-helper.labels" -}}
-helm.sh/chart: {{ include "mlaas-helper.chart" . }}
+helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{ include "mlaas-helper.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
@@ -64,16 +52,9 @@ Create the name of the service account to use
 {{- end }}
 {{- end }}
 
-{{/*
-Create the name of the secret to use
-*/}}
-{{- define "mlaas-helper.secretName" -}}
-{{- printf "%s-secret" (include "mlaas-helper.fullname" .) }}
-{{- end }}
-
-{{/*
+{{-/*
 Create the name of the configmap to use
 */}}
 {{- define "mlaas-helper.configMapName" -}}
 {{- printf "%s-config" (include "mlaas-helper.fullname" .) }}
-{{- end }} 
+{{- end -}}

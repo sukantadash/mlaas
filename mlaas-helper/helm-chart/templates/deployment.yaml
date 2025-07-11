@@ -41,50 +41,20 @@ spec:
             - name: http
               containerPort: {{ .Values.service.targetPort }}
               protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "mlaas-helper.configMapName" . }}
           env:
-            # Application environment variables from values.yaml
-            {{- range $key, $value := .Values.env }}
-            {{- if $value }}
-            - name: {{ $key }}
-              value: {{ $value | quote }}
-            {{- end }}
-            {{- end }}
-            # Secret environment variables (only if secrets are provided)
-            {{- if .Values.secrets.THREESCALE_ADMIN_API_KEY }}
+            - name: KEYCLOAK_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.mlaas-helper-secret.name }}
+                  key: KEYCLOAK_CLIENT_SECRET
             - name: THREESCALE_ADMIN_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "mlaas-helper.secretName" . }}
+                  name: {{ .Values.mlaas-helper-secret.name }}
                   key: THREESCALE_ADMIN_API_KEY
-            {{- end }}
-            {{- if .Values.secrets.ARTIFACTORY_USERNAME }}
-            - name: ARTIFACTORY_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "mlaas-helper.secretName" . }}
-                  key: ARTIFACTORY_USERNAME
-            {{- end }}
-            {{- if .Values.secrets.ARTIFACTORY_PASSWORD }}
-            - name: ARTIFACTORY_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "mlaas-helper.secretName" . }}
-                  key: ARTIFACTORY_PASSWORD
-            {{- end }}
-            {{- if .Values.secrets.ARTIFACTORY_URL }}
-            - name: ARTIFACTORY_URL
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "mlaas-helper.secretName" . }}
-                  key: ARTIFACTORY_URL
-            {{- end }}
-            # Additional environment variables for application configuration
-            - name: API_TIMEOUT
-              value: {{ .Values.configMap.data.API_TIMEOUT | default "30" | quote }}
-            - name: API_RETRY_COUNT
-              value: {{ .Values.configMap.data.API_RETRY_COUNT | default "3" | quote }}
-            - name: LOG_LEVEL
-              value: {{ .Values.configMap.data.LOG_LEVEL | default "INFO" | quote }}
           {{- if .Values.startupProbe.enabled }}
           startupProbe:
             httpGet:
@@ -105,32 +75,6 @@ spec:
           {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          volumeMounts:
-            {{- if .Values.configMap.enabled }}
-            - name: config
-              mountPath: /app/config
-              readOnly: true
-            {{- end }}
-            {{- if and .Values.pip.enabled .Values.secrets.ARTIFACTORY_USERNAME }}
-            - name: pip-config
-              mountPath: /home/appuser/.pip/pip.conf
-              subPath: pip.conf
-              readOnly: true
-            {{- end }}
-      volumes:
-        {{- if .Values.configMap.enabled }}
-        - name: config
-          configMap:
-            name: {{ include "mlaas-helper.configMapName" . }}
-        {{- end }}
-        {{- if and .Values.pip.enabled .Values.secrets.ARTIFACTORY_USERNAME }}
-        - name: pip-config
-          configMap:
-            name: {{ include "mlaas-helper.configMapName" . }}
-            items:
-              - key: pip.conf
-                path: pip.conf
-        {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

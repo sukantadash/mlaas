@@ -9,7 +9,8 @@ image:
   # Overrides the image tag whose default is the chart appVersion.
   tag: "latest"
 
-imagePullSecrets: []
+imagePullSecrets:
+  - name: artifactory-secret
 nameOverride: ""
 fullnameOverride: ""
 
@@ -87,52 +88,10 @@ tolerations: []
 
 affinity: {}
 
-# Environment variables for the Flask application
-env:
-  # Flask environment configuration
-  FLASK_ENV: production
-  FLASK_APP: server.py
-  PYTHONUNBUFFERED: "1"
-  PYTHONDONTWRITEBYTECODE: "1"
-  
-  # Keycloak configuration for JWT token validation
-  # IMPORTANT: These are required for the application to start
-  # Set these to your actual Keycloak instance values
-  KEYCLOAK_URL: "https://changeme"
-  KEYCLOAK_REALM: "changeme"
-  KEYCLOAK_CLIENT_ID: "changeme"
-  
-  # 3Scale configuration
-  # IMPORTANT: This is required for the application to start
-  THREESCALE_ADMIN_API_URL: "https://changeme"
-
-# Secrets (should be provided via external secret management)
-secrets:
-  # Keycloak client secret (REQUIRED for confidential clients)
-  KEYCLOAK_CLIENT_SECRET: "changeme"
-  # 3Scale admin API key (REQUIRED)
-  THREESCALE_ADMIN_API_KEY: "changeme"
-  # Artifactory credentials for pip configuration (OPTIONAL)
-  ARTIFACTORY_USERNAME: "changeme"
-  ARTIFACTORY_PASSWORD: "changeme"
-  ARTIFACTORY_URL: "changeme"
-
-# Configuration validation
-validation:
-  # Enable validation of required environment variables during deployment
-  enabled: true
-  # Fail deployment if required variables are not set
-  failOnMissingConfig: true
-  # Required environment variables (will be checked during deployment)
-  requiredEnvVars:
-    - KEYCLOAK_URL
-    - KEYCLOAK_REALM
-    - KEYCLOAK_CLIENT_ID
-    - THREESCALE_ADMIN_API_URL
-  # Required secrets (will be checked during deployment)
-  requiredSecrets:
-    - KEYCLOAK_CLIENT_SECRET
-    - THREESCALE_ADMIN_API_KEY
+# Secret configuration
+mlaas-helper-secret:
+  # If not set, a name is generated using the fullname template. define KEYCLOAK_CLIENT_SECRET and THREESCALE_ADMIN_API_KEY
+  name: "mlaas-helper-secret"
 
 # Probes configuration
 probes:
@@ -175,6 +134,23 @@ persistence:
 configMap:
   enabled: true
   data:
+    # Flask environment configuration
+    FLASK_ENV: "production"
+    FLASK_APP: "server.py"
+    PYTHONUNBUFFERED: "1"
+    PYTHONDONTWRITEBYTECODE: "1"
+    
+    # Keycloak configuration for JWT token validation
+    # IMPORTANT: These are required for the application to start
+    # Set these to your actual Keycloak instance values
+    KEYCLOAK_URL: "https://changeme"
+    KEYCLOAK_REALM: "changeme"
+    KEYCLOAK_CLIENT_ID: "changeme"
+    
+    # 3Scale configuration
+    # IMPORTANT: This is required for the application to start
+    THREESCALE_ADMIN_API_URL: "https://changeme"
+
     # Application configuration
     LOG_LEVEL: "INFO"
     LOG_FORMAT: "%(asctime)s - %(levelname)s: %(message)s"
@@ -182,14 +158,6 @@ configMap:
     SERVER_PORT: "5000"
     API_TIMEOUT: "30"
     API_RETRY_COUNT: "3"
-    
-# Pip configuration for artifactory
-pip:
-  enabled: true
-  # pip.conf content will be populated from secrets
-  trustedHost: ""
-  indexUrl: ""
-  extraIndexUrl: ""
 
 # Additional labels
 labels: {}
