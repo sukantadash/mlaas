@@ -109,9 +109,21 @@ def make_api_call(method: str, endpoint: str, params: Optional[dict] = None,
     
     url = f"{base_url}{endpoint}" if is_threescale_admin_api else endpoint
 
+    # This initial log message was already present
     logger.debug("Making API request", method=method, url=url, is_threescale=is_threescale_admin_api)
 
     try:
+        # --- ADDED FOR DEBUGGING: Log outgoing request details ---
+        logger.debug(
+            "Outgoing API Call Details",
+            method=method,
+            url=url,
+            params=params,
+            data=data,
+            headers=headers
+        )
+        # --- END ADDED LOGGING ---
+
         response = api_session.request(
             method, url, 
             params=params, 
@@ -119,6 +131,17 @@ def make_api_call(method: str, endpoint: str, params: Optional[dict] = None,
             headers=headers, 
             timeout=30
         )
+
+        # --- ADDED FOR DEBUGGING: Log incoming response details ---
+        logger.debug(
+            "Received API Response Details",
+            url=url,
+            status_code=response.status_code,
+            headers=dict(response.headers),
+            body=response.text
+        )
+        # --- END ADDED LOGGING ---
+
         response.raise_for_status()
 
         if is_json_response or not is_threescale_admin_api:
