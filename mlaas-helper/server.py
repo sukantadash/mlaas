@@ -189,7 +189,7 @@ def validate_token(token: str) -> Optional[Dict]:
         jwks = response.json()
         
                  # Expected issuer
-         expected_issuer = f"{keycloak_url.rstrip('/') if keycloak_url else ''}/realms/{keycloak_realm}"
+        expected_issuer = f"{keycloak_url.rstrip('/') if keycloak_url else ''}/realms/{keycloak_realm}"
         
         # Decode and verify token
         decoded_token = jose_jwt.decode(
