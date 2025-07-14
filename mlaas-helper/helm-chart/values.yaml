@@ -25,16 +25,9 @@ serviceAccount:
 
 podAnnotations: {}
 
-podSecurityContext:
-  fsGroup: 2000
+podSecurityContext: {}
 
-securityContext:
-  # capabilities:
-  #   drop:
-  #   - ALL
-  readOnlyRootFilesystem: false
-  runAsNonRoot: true
-  runAsUser: 1000
+securityContext: {}
 
 service:
   type: ClusterIP
@@ -162,3 +155,8 @@ labels: {}
 
 # Additional annotations
 annotations: {} 
+
+customCA:
+  enabled: true
+  certFilePath: "files/my-ca.crt"
+  envVarName: "REQUESTS_CA_BUNDLE"

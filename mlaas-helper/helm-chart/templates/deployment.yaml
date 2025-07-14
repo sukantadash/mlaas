@@ -46,6 +46,15 @@ spec:
                 name: {{ include "mlaas-helper.configMapName" . }}
             - secretRef:
                 name: {{ index .Values "mlaas-helper-secret" }}
+          {{- if and .Values.customCA.enabled}}
+          env:
+            - name: {{ .Values.customCA.envVarName }}
+              value: /etc/ssl/certs/custom-ca.crt
+          {{- end }}
+          {{- if and .Values.customCA.enabled }}
+          volumeMounts:
+            - name: custom-ca-volume
+          {{- end }}
           {{- if .Values.startupProbe.enabled }}
           startupProbe:
             httpGet:
@@ -66,6 +75,12 @@ spec:
           {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+      {{- if and .Values.customCA.enabled}}
+      volumes:
+        - name: custom-ca-volume
+          configMap:
+            name: {{ include "mlaas-helper.fullname" . }}-ca
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

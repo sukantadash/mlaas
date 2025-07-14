@@ -1,0 +1,11 @@
+{{- if and .Values.customCA.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mlaas-helper.fullname" . }}-ca
+  labels:
+    {{- include "mlaas-helper.labels" . | nindent 4 }}
+data:
+  ca.crt: |-
+    {{ .Files.Get .Values.customCA.certFilePath | nindent 4 }}
+{{- end }}
