@@ -458,16 +458,27 @@ class MLaaSClient:
         
         try:
             response = self.make_request('GET', '/api/services')
-            if not response:
+            if response is None:
                 print("Failed to retrieve services.")
                 return
-            
-            services = response.get('services', [])
-            user_info = response.get('user', {})
+
+            services = []
+            user_info = {}
+
+            if isinstance(response, dict):
+                services = response.get('services', [])
+                user_info = response.get('user', {})
+            elif isinstance(response, list):
+                services = response
+            else:
+                print("Unexpected response format from server.")
+                logger.error(f"Unexpected response format: {type(response)}")
+                return
             
             if user_info:
                 print(f"User: {user_info.get('soeid', 'Unknown')} ({user_info.get('email', 'No email')})")
-                logger.info(f"Account ID: {response.get('account_id', 'Unknown')}")
+                if isinstance(response, dict):
+                    logger.info(f"Account ID: {response.get('account_id', 'Unknown')}")
             
             if not services:
                 print("No services found.")
@@ -529,11 +540,20 @@ class MLaaSClient:
             # First, get the list of services to find the service ID
             logger.info("Fetching services list")
             services_response = self.make_request('GET', '/api/services')
-            if not services_response:
+            if services_response is None:
                 print("Failed to get services list.")
                 return
             
-            services = services_response.get('services', [])
+            services = []
+            if isinstance(services_response, dict):
+                services = services_response.get('services', [])
+            elif isinstance(services_response, list):
+                services = services_response
+            else:
+                print("Unexpected response format from server.")
+                logger.error(f"Unexpected response format: {type(services_response)}")
+                return
+
             selected_service = None
             
             for service in services:
