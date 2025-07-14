@@ -280,7 +280,6 @@ class MLaaSClient:
             logger.error(f"Error handling response: {e}")
             print(f"Error processing server response: {e}")
             return None
-    
     def make_request(self, method: str, endpoint: str, data: Optional[Dict] = None, 
                     require_auth: bool = True, retry_count: int = 0) -> Optional[Dict[str, Any]]:
         """Make HTTP request to MLaaS Helper with retry logic."""
@@ -317,13 +316,28 @@ class MLaaSClient:
                     headers['Authorization'] = f'Bearer {self.access_token}'
         
         try:
-            logger.debug(f"Making {method} request to {url}")
+            # --- MODIFIED LOGGING ---
+            logger.debug(f"--- Request Start ---")
+            logger.debug(f"Request  : {method} {url}")
+            logger.debug(f"Headers  : {headers}")
+            if data:
+                logger.debug(f"Body     : {json.dumps(data, indent=2)}")
+            # --- END MODIFIED LOGGING ---
+
             response = self.session.request(
                 method, url, 
                 json=data if data else None, 
                 headers=headers,
                 timeout=30
             )
+            
+            # --- ADDED LOGGING ---
+            logger.debug(f"--- Response ---")
+            logger.debug(f"Status   : {response.status_code}")
+            logger.debug(f"Headers  : {response.headers}")
+            logger.debug(f"Body     : {response.text}")
+            logger.debug(f"--- Request End ---")
+            # --- END ADDED LOGGING ---
             
             # Handle authentication errors
             if response.status_code == 401 and require_auth:
@@ -359,7 +373,7 @@ class MLaaSClient:
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
             print(f"Unexpected error: {e}")
-            return None
+            return None    
     
     def refresh_access_token(self) -> bool:
         """Try to refresh the access token using refresh token."""
