@@ -54,6 +54,9 @@ spec:
           {{- if and .Values.customCA.enabled }}
           volumeMounts:
             - name: custom-ca-volume
+              mountPath: /etc/ssl/certs/custom-ca.crt
+              subPath: ca.crt
+              readOnly: true
           {{- end }}
           {{- if .Values.startupProbe.enabled }}
           startupProbe:
