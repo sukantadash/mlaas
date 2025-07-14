@@ -44,17 +44,8 @@ spec:
           envFrom:
             - configMapRef:
                 name: {{ include "mlaas-helper.configMapName" . }}
-          env:
-            - name: KEYCLOAK_CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.mlaas-helper-secret.name }}
-                  key: KEYCLOAK_CLIENT_SECRET
-            - name: THREESCALE_ADMIN_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.mlaas-helper-secret.name }}
-                  key: THREESCALE_ADMIN_API_KEY
+            - secretRef:
+                name: {{ index .Values "mlaas-helper-secret" }}
           {{- if .Values.startupProbe.enabled }}
           startupProbe:
             httpGet:

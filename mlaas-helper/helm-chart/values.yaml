@@ -89,9 +89,7 @@ tolerations: []
 affinity: {}
 
 # Secret configuration
-mlaas-helper-secret:
-  # If not set, a name is generated using the fullname template. define KEYCLOAK_CLIENT_SECRET and THREESCALE_ADMIN_API_KEY
-  name: "mlaas-helper-secret"
+mlaas-helper-secret: "mlaas-helper-secret"
 
 # Probes configuration
 probes:

@@ -41,6 +41,7 @@ app.kubernetes.io/name: {{ include "mlaas-helper.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
+
 {{/*
 Create the name of the service account to use
 */}}
@@ -52,9 +53,9 @@ Create the name of the service account to use
 {{- end }}
 {{- end }}
 
-{{-/*
+{{/*
 Create the name of the configmap to use
 */}}
 {{- define "mlaas-helper.configMapName" -}}
 {{- printf "%s-config" (include "mlaas-helper.fullname" .) }}
-{{- end -}}
+{{- end }}
