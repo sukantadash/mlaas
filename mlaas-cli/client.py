@@ -11,6 +11,9 @@ import urllib.parse
 from typing import Optional, Dict, Any, List, Union
 from tabulate import tabulate
 import configparser
+import subprocess
+import shutil
+import yaml
 
 # --- Setup Logging ---
 logging.basicConfig(
@@ -25,6 +28,45 @@ DEFAULT_KEYCLOAK_REALM = "mlaas"
 DEFAULT_KEYCLOAK_CLIENT_ID = "mlaas-client"
 DEFAULT_KEYCLOAK_CLIENT_SECRET = ""  # Must be provided via environment variable or config
 DEFAULT_MLAAS_HELPER_URL = "https://mlaas-helper.prod.example.com"
+
+# --- Hardcoded Helix Templates ---
+HELIX_TEMPLATES = [
+    {
+        "name": "python",
+        "description": "Flask-based Python function",
+        "version": "1.0.2",
+        "git_repo": "https://github.com/example/python-template.git",
+        "branch": "main"
+    },
+    {
+        "name": "python-fastapi",
+        "description": "FastAPI-based Python function",
+        "version": "1.0.2",
+        "git_repo": "https://github.com/example/python-fastapi-template.git",
+        "branch": "main"
+    },
+    {
+        "name": "golang-gin-http",
+        "description": "Gin gionic based Golang function",
+        "version": "1.0.1",
+        "git_repo": "https://github.com/example/golang-gin-template.git",
+        "branch": "main"
+    },
+    {
+        "name": "java-http",
+        "description": "Java lightweight HttpSever",
+        "version": "1.0.2",
+        "git_repo": "https://github.com/example/java-http-template.git",
+        "branch": "main"
+    },
+    {
+        "name": "python-genai-vertex",
+        "description": "Vertex client, entry point to build Generative AI applications on top of it.",
+        "version": "1.0.2",
+        "git_repo": "https://github.com/example/python-genai-vertex-template.git",
+        "branch": "main"
+    }
+]
 
 # --- Configuration Management ---
 CONFIG_DIR = os.path.expanduser("~")
@@ -280,6 +322,7 @@ class MLaaSClient:
             logger.error(f"Error handling response: {e}")
             print(f"Error processing server response: {e}")
             return None
+    
     def make_request(self, method: str, endpoint: str, data: Optional[Dict] = None, 
                     require_auth: bool = True, retry_count: int = 0) -> Optional[Dict[str, Any]]:
         """Make HTTP request to MLaaS Helper with retry logic."""
@@ -316,28 +359,13 @@ class MLaaSClient:
                     headers['Authorization'] = f'Bearer {self.access_token}'
         
         try:
-            # --- MODIFIED LOGGING ---
-            logger.debug(f"--- Request Start ---")
-            logger.debug(f"Request  : {method} {url}")
-            logger.debug(f"Headers  : {headers}")
-            if data:
-                logger.debug(f"Body     : {json.dumps(data, indent=2)}")
-            # --- END MODIFIED LOGGING ---
-
+            logger.debug(f"Making {method} request to {url}")
             response = self.session.request(
                 method, url, 
                 json=data if data else None, 
                 headers=headers,
                 timeout=30
             )
-            
-            # --- ADDED LOGGING ---
-            logger.debug(f"--- Response ---")
-            logger.debug(f"Status   : {response.status_code}")
-            logger.debug(f"Headers  : {response.headers}")
-            logger.debug(f"Body     : {response.text}")
-            logger.debug(f"--- Request End ---")
-            # --- END ADDED LOGGING ---
             
             # Handle authentication errors
             if response.status_code == 401 and require_auth:
@@ -373,7 +401,7 @@ class MLaaSClient:
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
             print(f"Unexpected error: {e}")
-            return None    
+            return None
     
     def refresh_access_token(self) -> bool:
         """Try to refresh the access token using refresh token."""
@@ -472,14 +500,22 @@ class MLaaSClient:
         
         try:
             response = self.make_request('GET', '/api/services')
-            if response is None:
+            if not response:
                 print("Failed to retrieve services.")
                 return
-
+            
             services = []
             user_info = {}
 
-            if isinstance(response, dict):
+            # This block handles multiple response formats from the server
+            if isinstance(response, tuple):
+                response_dict = response[0]
+                data_dict = response_dict.get('data', {})
+                outer_services_list = data_dict.get('services', [])
+                if outer_services_list:
+                    services = outer_services_list[0]
+                user_info = data_dict.get('user', {})
+            elif isinstance(response, dict):
                 services = response.get('services', [])
                 user_info = response.get('user', {})
             elif isinstance(response, list):
@@ -533,9 +569,219 @@ class MLaaSClient:
             logger.error(f"Error listing services: {e}")
             print(f"Error listing services: {e}")
     
-    def init_api_key(self, service_identifier: str) -> None:
+    def list_templates(self) -> None:
+        """List all available Helix Function Templates."""
+        print("\n--- Available Helix Function Templates ---")
+
+        # Prepare table data from the hardcoded list
+        headers = ["NAME", "DESCRIPTION", "LATEST VERSION", "GIT REPO", "BRANCH"]
+        table_data = []
+
+        for template in HELIX_TEMPLATES:
+            table_data.append([
+                template.get('name', 'N/A'),
+                template.get('description', 'N/A'),
+                template.get('version', 'N/A'),
+                template.get('git_repo', 'N/A'),
+                template.get('branch', 'N/A')
+            ])
+
+        print(tabulate(table_data, headers=headers, tablefmt="grid"))
+
+    def create_app_from_template(self, create_args: List[str]) -> None:
+        """Creates a new application by cloning a template Git repository."""
+        if len(create_args) != 3:
+            print("Error: The create command requires 3 arguments: <template-name> <service-identifier> <app-name>")
+            return
+
+        template_name, service_identifier, app_name = create_args
+        
+        # Find the selected template from the hardcoded list
+        template = next((t for t in HELIX_TEMPLATES if t['name'] == template_name), None)
+
+        if not template:
+            print(f"✗ Error: Template '{template_name}' not found.")
+            print("Use --list-templates to see available templates.")
+            return
+
+        # Check if the destination directory already exists
+        clone_path = os.path.join(os.getcwd(), app_name)
+        if os.path.exists(clone_path):
+            print(f"✗ Error: Directory '{app_name}' already exists in the current path.")
+            return
+
+        # Get Git credentials from the user
+        print("\n--- Git Repository Authentication ---")
+        git_user = input("Enter your Git username: ")
+        git_token = getpass.getpass("Enter your Git token or password: ")
+
+        if not git_user or not git_token:
+            print("✗ Error: Git username and token/password are required.")
+            return
+
+        # Construct the authenticated repository URL
+        repo_url = template['git_repo']
+        parsed_url = urllib.parse.urlparse(repo_url)
+        authed_netloc = f"{urllib.parse.quote(git_user)}:{urllib.parse.quote(git_token)}@{parsed_url.netloc}"
+        authed_repo_url = parsed_url._replace(netloc=authed_netloc).geturl()
+
+        branch = template['branch']
+        
+        print(f"\nCloning template '{template_name}' from branch '{branch}' into './{app_name}'...")
+
+        # Construct and run the git clone command
+        command = ["git", "clone", "--branch", branch, authed_repo_url, app_name]
+
+        try:
+            # Use subprocess to run the command, capturing output
+            result = subprocess.run(command, check=True, capture_output=True, text=True, encoding='utf-8')
+            print(f"✓ Successfully cloned template into '{app_name}'.")
+            logger.debug(result.stdout)
+            
+            # --- Get service details and update values.yaml ---
+            print("\nFetching service details and configuring application...")
+            service_details = self.init_api_key(service_identifier, silent=True)
+            
+            if not service_details:
+                print("✗ Error: Could not retrieve service details. Please check the service identifier.")
+                return
+
+            api_key = service_details.get('api_key')
+            service_info = service_details.get('service', {})
+            endpoint = service_info.get('proxy_endpoint')
+            model_name = service_info.get('name')
+
+            if not all([api_key, endpoint, model_name]):
+                print("✗ Error: Incomplete service details received from the server.")
+                return
+
+            # Update the values.yaml file
+            values_yaml_path = os.path.join(clone_path, 'helm', 'values.yaml')
+            self.update_values_yaml(values_yaml_path, endpoint, model_name, api_key)
+            
+            print("✓ Application configured successfully.")
+
+            # --- Create pip.conf for Artifactory ---
+            self.create_pip_conf()
+
+
+        except FileNotFoundError:
+            print("✗ Error: 'git' command not found. Please ensure Git is installed and in your system's PATH.")
+        except subprocess.CalledProcessError as e:
+            print("✗ Error cloning repository. Please check your URL, credentials, and permissions.")
+            # Print the error from Git for debugging
+            logger.error("Git clone failed.")
+            print("\n--- Git Error Details ---")
+            print(e.stderr)
+            # Clean up the partially created directory if the clone fails
+            if os.path.exists(clone_path):
+                shutil.rmtree(clone_path)
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+
+    def update_values_yaml(self, file_path: str, api_url: str, model_name: str, api_key: str):
+        """Updates the helm/values.yaml file with service details."""
+        try:
+            if not os.path.exists(file_path):
+                print(f"✗ Warning: '{file_path}' not found. Skipping configuration.")
+                return
+
+            with open(file_path, 'r') as f:
+                values_data = yaml.safe_load(f)
+
+            if 'llm' not in values_data:
+                values_data['llm'] = {}
+
+            values_data['llm']['apiUrl'] = api_url
+            values_data['llm']['modelName'] = model_name
+            values_data['llm']['apiKey'] = api_key
+
+            with open(file_path, 'w') as f:
+                yaml.dump(values_data, f, default_flow_style=False, sort_keys=False)
+
+            print(f"✓ Updated '{file_path}' with new service configuration.")
+
+        except yaml.YAMLError as e:
+            print(f"✗ Error processing YAML file '{file_path}': {e}")
+        except IOError as e:
+            print(f"✗ Error accessing file '{file_path}': {e}")
+
+    def create_pip_conf(self):
+        """Prompts for Artifactory credentials and creates a pip.conf file."""
+        print("\n--- Artifactory Configuration ---")
+        soeid = input("Enter your Artifactory SOEID: ")
+        token = getpass.getpass("Enter your Artifactory token: ")
+
+        if not soeid or not token:
+            print("✗ Warning: SOEID and token are required for Artifactory. Skipping pip.conf creation.")
+            return
+
+        # Define the content for the pip.conf file
+        pip_conf_content = f"""
+[global]
+index-url = https://{soeid}:{token}@www.artifactory.citigroup.net/artifactory/api/pypi/pypi-dev/simple
+index = https://{soeid}:{token}@www.artifactory.citigroup.net/artifactory/api/pypi/pypi-dev
+trusted-host = www.artifactory.citigroup.net
+"""
+
+        # Write the content to pip.conf in the current directory
+        pip_conf_path = os.path.join(os.getcwd(), 'pip.conf')
+        try:
+            with open(pip_conf_path, 'w') as f:
+                f.write(pip_conf_content.strip())
+            print(f"✓ Successfully created 'pip.conf' in the current directory.")
+        except IOError as e:
+            print(f"✗ Error creating 'pip.conf': {e}")
+
+    def deploy_app(self, app_name: str) -> None:
+        """Deploys or upgrades an application using Helm."""
+        print(f"\n--- Deploying Application: {app_name} ---")
+
+        # Check if helm is installed
+        if not shutil.which("helm"):
+            print("✗ Error: 'helm' command not found. Please ensure Helm is installed and in your system's PATH.")
+            return
+
+        # Check if the application directory exists
+        app_path = os.path.join(os.getcwd(), app_name)
+        helm_path = os.path.join(app_path, 'helm')
+        if not os.path.isdir(app_path) or not os.path.isdir(helm_path):
+            print(f"✗ Error: Application directory './{app_name}/helm/' not found.")
+            print("Please run the 'create' command first or ensure you are in the correct directory.")
+            return
+        
+        # Construct the helm command
+        command = ["helm", "upgrade", "--install", app_name, helm_path]
+        
+        print(f"Running command: {' '.join(command)}")
+        print("-" * 20)
+
+        try:
+            # Run the helm command and stream output
+            process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8')
+            
+            for line in iter(process.stdout.readline, ''):
+                print(line, end='')
+            
+            process.stdout.close()
+            return_code = process.wait()
+
+            print("-" * 20)
+            if return_code == 0:
+                print(f"✓ Helm deployment of '{app_name}' completed successfully.")
+            else:
+                print(f"✗ Helm deployment of '{app_name}' failed with exit code {return_code}.")
+
+        except FileNotFoundError:
+             print("✗ Error: 'helm' command not found. Please ensure Helm is installed and in your system's PATH.")
+        except Exception as e:
+            print(f"An unexpected error occurred during deployment: {e}")
+
+
+    def init_api_key(self, service_identifier: str, silent: bool = False) -> Optional[Dict]:
         """Initialize API key for a service with improved error handling."""
-        print(f"\n--- Initializing API Key for Service: {service_identifier} ---")
+        if not silent:
+            print(f"\n--- Initializing API Key for Service: {service_identifier} ---")
         
         try:
             # Parse service identifier
@@ -544,29 +790,34 @@ class MLaaSClient:
                 identifier_type = identifier_type.strip().lower()
                 identifier_value = identifier_value.strip()
             else:
-                print("Error: Invalid service identifier format. Use 'id=<service_id>' or 'name=<service_name>'")
-                return
-            
+                # Default to name if no identifier type is provided
+                identifier_type = 'name'
+                identifier_value = service_identifier
+
             if identifier_type not in ['id', 'name']:
                 print("Error: Invalid identifier type. Use 'id' or 'name'")
-                return
+                return None
             
             # First, get the list of services to find the service ID
             logger.info("Fetching services list")
             services_response = self.make_request('GET', '/api/services')
             if services_response is None:
-                print("Failed to get services list.")
-                return
+                if not silent:
+                    print("Failed to get services list.")
+                return None
             
             services = []
-            if isinstance(services_response, dict):
+            if isinstance(services_response, tuple):
+                services = services_response[0].get('data', {}).get('services', [[]])[0]
+            elif isinstance(services_response, dict):
                 services = services_response.get('services', [])
             elif isinstance(services_response, list):
                 services = services_response
             else:
-                print("Unexpected response format from server.")
+                if not silent:
+                    print("Unexpected response format from server.")
                 logger.error(f"Unexpected response format: {type(services_response)}")
-                return
+                return None
 
             selected_service = None
             
@@ -579,11 +830,12 @@ class MLaaSClient:
                     break
             
             if not selected_service:
-                print(f"Error: Service with {identifier_type} '{identifier_value}' not found.")
-                print("Available services:")
-                for service in services[:5]:  # Show first 5
-                    print(f"  - {service.get('name')} (ID: {service.get('id')})")
-                return
+                if not silent:
+                    print(f"Error: Service with {identifier_type} '{identifier_value}' not found.")
+                    print("Available services:")
+                    for service in services[:5]:  # Show first 5
+                        print(f"  - {service.get('name')} (ID: {service.get('id')})")
+                return None
             
             service_id = selected_service['id']
             
@@ -596,9 +848,13 @@ class MLaaSClient:
             )
             
             if not response:
-                print("Failed to initialize API key.")
-                return
+                if not silent:
+                    print("Failed to initialize API key.")
+                return None
             
+            if silent:
+                return response
+
             service_info = response.get('service', {})
             api_key = response.get('api_key')
             is_new = response.get('is_new', False)
@@ -614,11 +870,14 @@ class MLaaSClient:
             print(f"\nYou can now use this API key to access the service at:")
             print(f"  {service_info.get('proxy_endpoint', 'N/A')}")
             print(f"\nExample usage:")
-            print(f"  curl -H 'X-API-Key: {api_key}' '{service_info.get('proxy_endpoint', 'N/A')}'")
-            
+            print(f"""  curl -H 'X-API-Key: {api_key}' '{service_info.get('proxy_endpoint', 'N/A')}'""")
+            return response
+
         except Exception as e:
-            logger.error(f"Error initializing API key: {e}")
-            print(f"Error initializing API key: {e}")
+            if not silent:
+                logger.error(f"Error initializing API key: {e}")
+                print(f"Error initializing API key: {e}")
+            return None
     
     def health_check(self) -> None:
         """Check server health with detailed information."""
@@ -670,6 +929,9 @@ def main():
 Examples:
   %(prog)s --health                           # Check server health
   %(prog)s --list                             # List all services
+  %(prog)s --list-templates                   # List all available function templates
+  %(prog)s --create python my-service my-app  # Create a new app from the 'python' template
+  %(prog)s --deploy my-app                     # Deploy an existing application using Helm
   %(prog)s --init id=service-123              # Initialize API key by service ID
   %(prog)s --init name="ML Service"           # Initialize API key by service name
   %(prog)s --logout                           # Clear stored tokens
@@ -711,6 +973,25 @@ Examples:
         '-l', '--list', 
         action='store_true',
         help='List all services and their API key status'
+    )
+    
+    parser.add_argument(
+        '-lt', '--list-templates',
+        action='store_true',
+        help='List all available Helix Function Templates'
+    )
+
+    parser.add_argument(
+        '-c', '--create',
+        nargs=3,
+        metavar=('TEMPLATE', 'SERVICE', 'APP_NAME'),
+        help='Create a new application from a template.'
+    )
+
+    parser.add_argument(
+        '-d', '--deploy',
+        metavar='APP_NAME',
+        help='Deploy an application using Helm.'
     )
     
     parser.add_argument(
@@ -776,7 +1057,16 @@ Examples:
         
         elif args.list:
             client.list_services()
+
+        elif args.list_templates:
+            client.list_templates()
         
+        elif args.create:
+            client.create_app_from_template(args.create)
+
+        elif args.deploy:
+            client.deploy_app(args.deploy)
+
         elif args.init:
             client.init_api_key(args.init)
         
@@ -797,4 +1087,4 @@ Examples:
         sys.exit(1)
 
 if __name__ == "__main__":
-    main() 
+    main()
