@@ -14,6 +14,49 @@ import configparser
 import subprocess
 import shutil
 import yaml
+import tempfile
+import atexit
+
+# --- Script Version ---
+__version__ = "1.1.0"
+
+# --- Embedded Certificate ---
+# In a real-world scenario, you would paste your company's root CA certificate here.
+# This allows the script to trust internal servers without needing system-level installations.
+EMBEDDED_CERT = """
+"""
+
+# --- Certificate Setup ---
+def setup_custom_ca():
+    """
+    Writes the embedded CA certificate to a temporary file and sets the
+    REQUESTS_CA_BUNDLE environment variable for the requests library to use.
+    """
+    try:
+        # Create a temporary file to hold the certificate
+        cert_file = tempfile.NamedTemporaryFile(delete=False, mode='w', suffix='.pem')
+        cert_file.write(EMBEDDED_CERT)
+        cert_file_path = cert_file.name
+        cert_file.close()
+
+        # Set the environment variable for the requests library
+        os.environ['REQUESTS_CA_BUNDLE'] = cert_file_path
+        logger.debug(f"Custom CA bundle set to: {cert_file_path}")
+
+        # Register a cleanup function to delete the temporary file on exit
+        def cleanup():
+            try:
+                os.remove(cert_file_path)
+                logger.debug(f"Cleaned up temporary CA file: {cert_file_path}")
+            except OSError as e:
+                logger.error(f"Error cleaning up temporary CA file: {e}")
+        
+        atexit.register(cleanup)
+
+    except Exception as e:
+        logger.error(f"Failed to set up custom CA bundle: {e}")
+        # Depending on the strictness required, you might want to exit here.
+        # For now, we'll just log the error and continue.
 
 # --- Setup Logging ---
 logging.basicConfig(
@@ -99,7 +142,7 @@ class KeycloakAuthClient:
         self.client_secret = client_secret
         self.session = requests.Session()
         self.session.headers.update({
-            'User-Agent': 'MLaaS-Client/1.0',
+            'User-Agent': f'MLaaS-Client/{__version__}',
             'Accept': 'application/json'
         })
 
@@ -155,6 +198,10 @@ class MLaaSClient:
     def __init__(self, mlaas_helper_url: Optional[str] = None, keycloak_url: Optional[str] = None,
                  keycloak_realm: Optional[str] = None, keycloak_client_id: Optional[str] = None,
                  keycloak_client_secret: Optional[str] = None):
+        
+        # Set up the custom CA bundle at the very beginning
+        setup_custom_ca()
+
         # Use hardcoded values with fallback to parameters
         self.mlaas_helper_url = mlaas_helper_url or DEFAULT_MLAAS_HELPER_URL
         self.keycloak_url = keycloak_url or DEFAULT_KEYCLOAK_URL
@@ -176,7 +223,7 @@ class MLaaSClient:
         # Initialize HTTP session
         self.session = requests.Session()
         self.session.headers.update({
-            'User-Agent': 'MLaaS-Client/1.0',
+            'User-Agent': f'MLaaS-Client/{__version__}',
             'Accept': 'application/json'
         })
 
@@ -758,7 +805,7 @@ trusted-host = www.artifactory.citigroup.net
         try:
             with open(values_yaml_path, 'r') as f:
                 values_data = yaml.safe_load(f)
-                app_name = values_data.get('name')
+                app_name = values_data.get('appName')
                 if not app_name:
                     print("✗ Error: 'appName' not found in './helm/values.yaml'.")
                     print("Please ensure the application was created correctly with the '--create' command.")
@@ -986,6 +1033,7 @@ def main():
         formatter_class=argparse.RawTextHelpFormatter,
         epilog="""
 Examples:
+  %(prog)s -v, --version                      # Show client version
   %(prog)s --health                           # Check server health
   %(prog)s --list                             # List all services
   %(prog)s --list-templates                   # List all available function templates
@@ -996,6 +1044,13 @@ Examples:
   %(prog)s --logout                           # Clear stored tokens
   %(prog)s --config                           # Show current configuration
         """
+    )
+
+    parser.add_argument(
+        '-v', '--version',
+        action='version',
+        version=f'%(prog)s {__version__}',
+        help="Show program's version number and exit"
     )
 
     parser.add_argument(
@@ -1078,7 +1133,7 @@ Examples:
     )
 
     parser.add_argument(
-        '--verbose', '-v',
+        '--verbose',
         action='store_true',
         help='Enable verbose logging'
     )
@@ -1103,6 +1158,9 @@ Examples:
             keycloak_client_id=args.keycloak_client_id,
             keycloak_client_secret=args.keycloak_client_secret
         )
+
+        # Note: The 'version' action is handled automatically by argparse and exits
+        # so we don't need an explicit check for it here.
 
         if args.logout:
             client.clear_tokens()
@@ -1130,8 +1188,17 @@ Examples:
             client.init_api_key(args.init)
 
         else:
-            parser.print_help()
-            sys.exit(1)
+            # This part is now reachable if only flags like --verbose are passed
+            # without other actions. We can print help here.
+            # We check if any of our main actions were triggered.
+            action_taken = any([
+                args.logout, args.config, args.health, args.list,
+                args.list_templates, args.create, args.deploy, args.init
+            ])
+            if not action_taken:
+                parser.print_help()
+                sys.exit(1)
+
 
     except ConfigurationError as e:
         logger.error(f"Configuration error: {e}")
