@@ -168,9 +168,8 @@ class KeycloakAuthClient:
                 token_url,
                 data=data,
                 headers={'Content-Type': 'application/x-www-form-urlencoded'},
-                timeout=30
-            )
-
+                timeout=30)
+            
             if response.status_code == 200:
                 token_data = response.json()
                 logger.debug("Authentication successful with Keycloak")
